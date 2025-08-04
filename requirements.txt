@@ -1,0 +1,6 @@
+Flask
+rq
+redis
+requests
+gunicorn
+python-dotenv

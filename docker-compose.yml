@@ -1,0 +1,44 @@
+services:
+  # Service for your Flask webhook server
+  webhook:
+    build: . 
+    container_name: webhook_server_app
+    ports:
+      - "5000:5000" 
+    environment:
+      DIFY_API_BASE_URL: "http://dify.glodal-inc.net/v1"
+      DIFY_APP_ID_WORKFLOW_B: "64b26e32-7f4d-4c7c-93e7-74d54774415a"
+      DIFY_API_KEY: "app-DsN6zeDu0IgeIz5kSv9qtlK8"
+      REDIS_URL: "rediss://default:AdzJAAIjcDFhZDU2YTUzYjYwOTQ0ZTg5YWRmZmE4MjA5NmUwZWVjMnAxMA@choice-horse-56521.upstash.io:6379"
+    command: gunicorn -w 4 -b 0.0.0.0:5000 webhook_server:app # Run Flask app with Gunicorn
+    # Healthcheck 
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"] 
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s 
+
+  # Service for your RQ worker
+  worker:
+    build: . 
+    container_name: rq_worker_processor
+    environment:
+      DIFY_API_BASE_URL: "http://dify.glodal-inc.net/v1"
+      DIFY_APP_ID_WORKFLOW_B: "64b26e32-7f4d-4c7c-93e7-74d54774415a"
+      DIFY_API_KEY: "app-DsN6zeDu0IgeIz5kSv9qtlK8"
+      REDIS_URL: "rediss://default:AdzJAAIjcDFhZDU2YTUzYjYwOTQ0ZTg5YWRmZmE4MjA5NmUwZWVjMnAxMA@choice-horse-56521.upstash.io:6379"
+    command: rq worker -u ${REDIS_URL} # Command to start the RQ worker, connecting to Upstash
+    restart: on-failure 
+
+  # RQ Dashboard for monitoring (for local development/debugging)
+  dashboard:
+    image: eoranged/rq-dashboard
+    container_name: rq_dashboard_monitor
+    ports:
+      - "9181:9181"
+    environment:
+      RQ_DASHBOARD_REDIS_URL: "rediss://default:AdzJAAIjcDFhZDU2YTUzYjYwOTQ0ZTg5YWRmZmE4MjA5NmUwZWVjMnAxMA@choice-horse-56521.upstash.io:6379" # Connects to Upstash Redis
+    depends_on:
+      - webhook 
+    restart: on-failure
